@@ -1,0 +1,33 @@
+## 评审结果
+
+### 1. [高] OpenAI 请求路径可能重复 `/v1`
+**位置：** `openai-code-review-test/src/main/resources/application-dev.yml:5`
+
+Spring AI OpenAI 客户端默认的聊天补全路径通常为 `/v1/chat/completions`。如果当前依赖版本使用该默认值，新配置会请求：
+
+```text
+https://api.openai-proxy.org/v1/v1/chat/completions
+```
+
+这可能导致接口返回 404，代码评审无法执行。
+
+**建议：**核对项目使用的 Spring AI 版本及代理服务要求的路径。若使用默认补全路径，应将 `base-url` 设为 `https://api.openai-proxy.org`；否则显式配置正确的补全路径，并添加一次实际接口调用测试。
+
+### 2. [中] 日志链接的分支与实际推送分支可能不一致
+**位置：** `openai-code-review-sdk/src/main/java/com/zdkk/middleware/sdk/OpenAiCodeReview.java:90`
+
+返回链接从 `main` 改为 `master`，但本次变更没有同步指定提交和推送分支。如果日志仓库克隆后使用的仍是 `main`，日志会被推送到 `main`，返回的 `master` 链接则会失效。
+
+**建议：**明确指定日志仓库的检出和推送分支，并用同一个配置生成链接；或根据实际推送分支动态生成链接。
+
+### 3. [中] 第三方代理涉及密钥和代码数据泄露风险
+**位置：** `openai-code-review-test/src/main/resources/application-dev.yml:5`
+
+配置将请求发送到第三方代理。该服务会接收 API 密钥及待评审的代码内容；如果密钥仅授权用于官方服务，或仓库包含敏感代码，这会带来安全风险。
+
+**建议：**确认代理的可信度、数据保留政策和使用授权；按需要改用官方端点或经批准的内部代理，并使用权限受限的专用密钥。
+
+### 待验证
+
+- 确认代理支持配置的 `gpt-6.1-terra` 模型，否则请求可能因模型不存在或无权限而失败。
+- 确认 GitHub Actions 中已配置 `OPENAI_API_KEY` secret，并通过工作流端到端验证启动和评审调用。
